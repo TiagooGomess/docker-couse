@@ -1,0 +1,35 @@
+language: generic
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t tiagoogomess/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run -e CI=true tiagoogomess/react-test npm test
+
+after_success:
+  - docker build -t tiagoogomess/multi-client ./client
+  - docker build -t tiagoogomess/multi-nginx ./nginx
+  - docker build -t tiagoogomess/multi-server ./server
+  - docker build -t tiagoogomess/multi-worker ./worker
+  # Log in to the docker CLI
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  # Take those images and push them to docker hub
+  - docker push tiagoogomess/multi-client
+  - docker push tiagoogomess/multi-nginx
+  - docker push tiagoogomess/multi-server
+  - docker push tiagoogomess/multi-worker
+
+deploy:
+  provider: elasticbeanstalk
+  region: 'eu-west-2'
+  app: 'multi-docker'
+  env: 'MultiDocker-env'
+  bucket_name: 'elasticbeanstalk-eu-west-2-795252587586'
+  bucket_path: 'docker-multi'
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
